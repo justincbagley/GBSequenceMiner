@@ -1,0 +1,235 @@
+PRELIMINARY INFO:
+
+## Definition of "Accession" from NCBI, from sample record (URL: https://www.ncbi.nlm.nih.gov/Sitemap/samplerecord.html#AccessionB): 
+
+>The unique identifier for a sequence record. An accession number applies to the complete record and is usually a combination of a letter(s) and numbers, such as a single letter followed by five digits (e.g., U12345) or two letters followed by six digits (e.g., AF123456). Some accessions might be longer, depending on the type of sequence record.
+
+>Accession numbers do not change, even if information in the record is changed at the author's request. Sometimes, however, an original accession number might become secondary to a newer accession number, if the authors make a new submission that combines previous sequences, or if for some reason a new submission supercedes an earlier record.
+
+>Records from the RefSeq database of reference sequences have a different accession number format that begins with two letters followed by an underscore bar and six or more digits, for example:
+
+>NT_123456   constructed genomic contigs
+>NM_123456   mRNAs
+>NP_123456   proteins
+>NC_123456   chromosomes
+>Note: compare accession number with Sequence Identifiers such as Version and GI for nucleotide sequences and protein_id and GI for amino acid sequences.
+
+>Entrez Search Field: Accession [ACCN] 
+>Search Tip: The letters in the accession number can be written in upper- or lowercase. RefSeq accessions must contain an underscore bar between the letters and the numbers, e.g., NM_002111.
+
+
+
+
+
+
+
+
+
+
+README PREP:
+###############################
+
+
+
+# GETTING STARTED
+
+## Dependencies
+
+- poppler
+- pdfgrep version 2.0 
+
+### Install dependencies for mac OSX:
+
+### Steps
+
+1. Install/check homebrew. Check to see if you have homebrew (```$ brew --version```) and make sure it is up to date (```$ brew update```). If necessary, download and install homebrew (e.g. using pip, curl)
+2. Run ```$ brew doctor```, and follow instructions to correct any absent or broken symlinks.
+* Link by doing ```$ brew link <package_name>```
+3. Install poppler dependencies using homebrew...
+```$ brew install cairo fontconfig freetype glib gobject-introspection libgcrypt libpng libunistring little-cms2 openjpeg pkg-config qt5 xz```
+(Note: before installing poppler I also did ```$ brew install doxygen libunistring```, because even though these two packages are not required they are recommended by the poppler documentation)
+4. Install poppler...
+```$ brew install poppler```
+5. Install pdfgrep 2.0 (https://pdfgrep.org/)
+```
+$ curl https://pdfgrep.org/download/pdfgrep-2.0.tar.gz		## You can also git clone the latest development version from github.
+$ ## Next, unzip the tarball:
+$ xvf XXXXXXXXXX
+$ ## Then configure and install pdfgrep:
+$ cd pdfgrep-2.0
+$ ./configure
+$ make
+$ sudo make install
+```
+
+# USAGE
+
+
+
+
+
+
+
+###############################
+
+# GOALS / PLANNING THE DATA MINING STEPS
+
+1. Start from folder with PDF files of phylogeography / popgen / phylogenetic
+manuscripts of interest.
+
+2. Enter the working directory and extract lines matching potential/putative GenBank 
+accession numbers to a '.txt' file (one per PDF), whose name contains part or all of the 
+original PDF file name (e.g. "Baumsteiger_et_al_2016_IDnos.txt" for a paper 
+with filename "Baumsteiger_et_al_2016_Cottus_asper_Cottidae_California_JH.pdf")
+
+3. The lines in the output .txt file could contain single GenBank numbers or ranges, in
+regular text or table (or other) format, but they also might contain other numbers (e.g.
+grant numbers). So, next we want to check and edit the output files so that they only
+contain accession numbers. The ultimate goal is for each .txt file to consist of only one
+GenBank accession number per line, for example:
+
+DQ324115 
+DQ324116
+DQ324117
+DQ324118
+DQ324119
+
+4. Once we have achieved GenBank accession number lists for each paper, we need to move 
+them into individual sub-folders. So, we create a sub-folder with the full or partial name 
+of the paper/PDF file and move the final accession number .txt file into that sub-folder.
+
+5. Now we have a working directory containing all of the PDF files, plus one sub-folder per 
+PDF with name corresponding to that PDF, inside of which there is a .txt file containing 
+the accession numbers from the PDF. So, we need to go to GenBank and download the coding
+sequence (CDS) and GenBank data for each accession. We will use a Python script named
+"fetch_accession.py" to do this. Specifically, since we have this script in our PATH (and
+thus available from the command line), we will loop through the sub-folders and execute 
+the Python script inside each sub-folder.
+
+6. After "fetching" the accessions, each sub-folder will contain one ".gb" file containing
+information about the accession record, and one ".fasta" file containing the corresponding
+sequence. This is not a usable format for the data, although it is well-structured. In order
+to make the data useful, we will concatenate the fasta sequences in each sub-folder into
+a single file containing the full or partial name of the original manuscript PDF.
+
+7. The next step is to process the fasta sequences so that sequences for different species,
+or matching a particular identifier, are split into separate files (without destroying the
+original file of concatenated fasta sequences).
+
+
+
+
+
+
+
+###############################
+
+# STEPS AND CODE SNIPPETS/NOTES (more detailed)
+
+##### 1. Start from folder with PDF files of phylogeography / popgen / phylogenetic
+##--manuscripts of interest. These are collated by hand during a literature search and 
+##--have already been screened for appropriate focus, taxon, question, sampling, & scale.
+
+
+##### 2. For each PDF file (with extension .pdf), use pdfgrep to extract all lines with
+##--GenBank accession numbers, which are always formatted as two uppercase letters followed 
+##--by at least 6 (but sometimes also 7) Arabic numbers. We can combine find and pdfgrep
+##--to do this, in practice, by finding all files with extension .pdf in the current 
+##--directory and then conducting the pdfgrep search and outputing results to file using
+##--a redirect command, as follows:
+
+find . -iname '*.pdf' -exec pdfgrep "[A-Z]{2,}[0-9]{6,}" {} + > accession_nos.txt
+
+##--For each instance of a putative accession number matching the grep search above, 
+##--pdfgrep outputs a line of the format: "./<PDFname.pdf>:<matching_line_content>", and 
+##--typically multiple lines will be output for each file that contains matches. Invariably,
+##--some of the lines might contain technical numbers or grant numbers, and these are not
+##--the desired target. Other lines may include numbers other than GenBank numbers, such
+##--as years of publication references, or other numeric information.
+#
+##--For example, this is an excerpt of the first 12 lines of the .txt file from a 
+##--preliminary analysis: 
+
+##--./Ahti_et_al_2016_Coris_wrasses_phylogeography_mtDNA_COI_GH_RPS7_marine_Indian_Pacific_Ocean_JBI.pdf:Bank accession no. KF929780), the closest known relative to    22 alleles (Fig. 3b). Pairwise /ST comparisons for GnRH
+##--./Ahti_et_al_2016_Coris_wrasses_phylogeography_mtDNA_COI_GH_RPS7_marine_Indian_Pacific_Ocean_JBI.pdf:ary partition is at the IPB. Shallow morphological and          NA15NOS4290067 (R.R.C.). Thanks to associate editor
+##--./Baumsteiger_et_al_2016_Cottus_asper_Cottidae_California_JH.pdf:    KX353312-KX353550).                                                            diversity was always highest in coastal locations, especially more
+##--./Boudinar_et_al_Atherina_boyeri_mtDNA_ECSS_2016.pdf:                                                                                                 (GenBank accession numbers AY326785.1 for CR, AY313118.1 for
+##--./Boudinar_et_al_Atherina_boyeri_mtDNA_ECSS_2016.pdf:                                                                                                 nidae (GenBank accession numbers HM855075.1 for 16S). We also
+##--./Boudinar_et_al_Atherina_boyeri_mtDNA_ECSS_2016.pdf:                                                                                                 area, A. presbyter (GenBank accession numbers JF309618.1) and
+##--./Boudinar_et_al_Atherina_boyeri_mtDNA_ECSS_2016.pdf:ranean sampling area, and the lower map shows the south-western Mediterranean                    A. hepsetus (GenBank accession numbers JF309620.1), in order to
+##--./Chan_et_al_2016_Gymnocypris_dobula_Cyprinidae_mtDNA_D-loop_BSE.pdf:All the 50 mtDNA D-loop sequences of haplotypes were deposited in the GenBank database (KU375469-KU375518).
+##--./Chan_et_al_2016_Gymnocypris_dobula_Cyprinidae_mtDNA_D-loop_BSE.pdf:31572598), the “Shanghai Pujiang Program” (grant no. 16PJ1404000), and the Shanghai Municipal Project for First-Class
+##--./Cole_et_al_2016_wUnmack_Nannoperca_australis_threatened_CG.pdf:ducted to determine whether there is evidence that con-        Bank (accession numbers KX249713-KX249733). The
+##--./Cole_et_al_2016_wUnmack_Nannoperca_australis_threatened_CG.pdf:                                                                (LP100200409 to LB Beheregaray, J Harris and M Adams; and
+##--./Cole_et_al_2016_wUnmack_Nannoperca_australis_threatened_CG.pdf:hamper conservation efforts because (i) such populations        FT130101068 to LB Beheregaray) and by an AJ & IM Naylon
+
+##--Five lines contain individual GenBank accession numbers, in this case "GI" numbers. 
+##--Other lines, for example line 3, contain ranges of GenBank accession numbers with the 
+##--format "<start_number>-<end_number>" or "<start_number> - <end_number>". However, four 
+##--lines, including lines 2, 9, 11, and 12 contain grant numbers (e.g. "FT130101068 to LB 
+##--Beheregaray") and we want to avoid those. We want to separate out accession numbers, 
+##--single or in ranges, into one file for each paper.
+
+
+##### 3. Move all lines corresponding to each manuscript to a new '.txt' file and place that 
+##--file into a folder. The new text file and folder should carry the same or a similar name 
+##--relative to that of the original manuscript. We also should move the corresponding 
+##--manuscript, or a copy of it, into the newly created folder. We can use a for loop...
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
