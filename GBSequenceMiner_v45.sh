@@ -400,7 +400,7 @@ echo "INFO      | $(date) | ACCESSION NUMBER EXTRACTED ABOVE. "
 				###### Now let's organize the .gb files into a new directory named "genbank", and also
 				##--place the .fasta files into a new directory named "fasta":
 				mkdir genbank fasta
-				mv ./*.gb ./genbank/; mv ./*.fasta;
+				mv ./*.gb ./genbank/; mv ./*.fasta ./fasta/;
 				cp ./fasta/ALL.${MY_FOLDERNAME}.fasta ../;
 
 				###### Now let's split the fasta data out by different sequence types... by genome and then by 
